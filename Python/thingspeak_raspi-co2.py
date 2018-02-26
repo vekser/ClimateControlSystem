@@ -177,6 +177,8 @@ def sendData(co2, temp):
         if debug:
             log = log + 'Update {}'.format(html_string)
 
+    except (SystemExit, KeyboardInterrupt):
+        raise # System Exit or Keyboard Interrupt
     except urllib2.HTTPError, e:
         log = log + 'Server could not fulfill the request. Error code: {}'.format(str(e.code))
     except urllib2.URLError, e:
@@ -191,17 +193,15 @@ if __name__ == "__main__":
     Main daemon function
     """
 
-    stop_signal = False
-
     def signal_handler(signum, frame):
-        stop_signal = True
+        print('{} Signal SIGTERM was received.'.format(str(datetime.datetime.now())))
+        sys.exit(0)
 
     print('{} CO2 daemon started.'.format(str(datetime.datetime.now())))
 
     LOGFILE = thingspeak_config.get('log', 'logCO2_ts.txt')
 
     try:
-        signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
 
         t_mt8057 = mt8057()
@@ -211,15 +211,7 @@ if __name__ == "__main__":
 
         while True: # Infinite loop for data sending
             try:
-                start = time.time()
-                while time.time()-start < pause:
-                    if stop_signal:
-                        break
-                    time.sleep(1)
-
-                if stop_signal:
-                    print('{} Signal SIGINT/SIGTERM was received.'.format(str(datetime.datetime.now())))
-                    break
+                time.sleep(pause)
 
                 current_time = str(datetime.datetime.now());
 
@@ -232,20 +224,22 @@ if __name__ == "__main__":
                 flog = open(LOGFILE,'a',0)
                 flog.write('{},{},{}\n'.format(current_time, valueCO2, valueTemp))
                 flog.close()
+            except SystemExit: # System Exit, leave loop
+                break
             except KeyboardInterrupt:
-                raise # Leave loop only when KeyboardInterrupt was caught
+                # Leave loop only when KeyboardInterrupt was caught
+                print('{} KeyboardInterrupt was caught.'.format(str(datetime.datetime.now())))
+                break
             except IOError as e: # File error, don't leave loop
                 print('I/O error: {}'.format(e.strerror))
             except:
                 print('{} Unknown error in loop.'.format(str(datetime.datetime.now()))) # Don't leave loop
-    except KeyboardInterrupt:
-        print('{} KeyboardInterrupt was caught.'.format(str(datetime.datetime.now())))
+
+        t_mt8057.stop()
+        t_mt8057.join()
     except:
         print('{} Unknown error.'.format(str(datetime.datetime.now())))
 
-    t_mt8057.stop()
-    t_mt8057.join()
-
     print('{} CO2 daemon stopped.'.format(str(datetime.datetime.now())))
 
-    sys.exit()
+    sys.exit(0)

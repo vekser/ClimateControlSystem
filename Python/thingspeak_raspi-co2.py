@@ -10,9 +10,14 @@ import datetime
 import signal
 import urllib            # URL functions
 import urllib2           # URL functions
+import configparser
 
-debug = False # Loging data sending to console
-pause = 30    # Pause between data sending (seconds)
+config = configparser.ConfigParser()
+config.read('thingspeak_config.ini')
+thingspeak_config = config['thingspeak.com']
+
+debug = thingspeak_config.getboolean('debug', False) # Loging data sending to console
+pause = int(thingspeak_config.get('pause', 30))      # Pause between data sending (seconds)
 
 class mt8057(threading.Thread):
     """
@@ -148,8 +153,8 @@ def sendData(co2, temp):
     Send data to Cloud
     """
 
-    THINGSPEAKKEY = 'XXXXXXXXXXXXXXXX'
-    THINGSPEAKURL = 'https://api.thingspeak.com/update'
+    THINGSPEAKKEY = thingspeak_config.get('key', '')
+    THINGSPEAKURL = thingspeak_config.get('url', '')
 
     values = {'api_key' : THINGSPEAKKEY, 'field1' : co2, 'field2' : temp}
 
@@ -192,7 +197,7 @@ if __name__ == "__main__":
 
     print('{} CO2 daemon started.'.format(str(datetime.datetime.now())))
 
-    LOGFILE = '~/logCO2_ts.txt'
+    LOGFILE = thingspeak_config.get('log', 'logCO2_ts.txt')
 
     try:
         signal.signal(signal.SIGINT, signal_handler)

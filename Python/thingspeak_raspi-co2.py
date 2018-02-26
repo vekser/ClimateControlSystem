@@ -11,9 +11,10 @@ import signal
 import urllib            # URL functions
 import urllib2           # URL functions
 import configparser
+import os
 
 config = configparser.ConfigParser()
-config.read('thingspeak_config.ini')
+config.read(os.path.join(os.path.dirname(__file__), 'thingspeak_config.ini'))
 thingspeak_config = config['thingspeak.com']
 
 debug = thingspeak_config.getboolean('debug', False) # Loging data sending to console

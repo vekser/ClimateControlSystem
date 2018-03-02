@@ -78,9 +78,14 @@ class mt8057(threading.Thread):
             self.RW_TIMEOUT)
         self._event_stop.clear()
         while not self._event_stop.is_set():
-            data = self._read()
-            self._parse(data)
-            # time.sleep(0.1)
+            try:
+                data = self._read()
+                self._parse(data)
+                # time.sleep(0.1)
+            except BaseException as e:
+                print('{} USB reading error: {}'.format(str(datetime.datetime.now()), str(e)))
+            except:
+                print('{} USB reading error.'.format(str(datetime.datetime.now())))
         self._release()
 
     def get_data(self):
@@ -237,6 +242,8 @@ if __name__ == "__main__":
 
         t_mt8057.stop()
         t_mt8057.join()
+    except BaseException as e:
+        print('{} Unknown error: {}'.format(str(datetime.datetime.now()), str(e)))
     except:
         print('{} Unknown error.'.format(str(datetime.datetime.now())))
 

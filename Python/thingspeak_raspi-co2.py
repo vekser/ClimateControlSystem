@@ -1,6 +1,3 @@
-import plotly.plotly as py
-from plotly.graph_objs import Scatter, Layout, Figure
-
 import sys
 import time
 import threading

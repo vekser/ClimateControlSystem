@@ -9,6 +9,7 @@ import urllib            # URL functions
 import urllib2           # URL functions
 import configparser
 import os
+import Adafruit_DHT
 
 config = configparser.ConfigParser()
 config.read(os.path.join(os.path.dirname(__file__), 'thingspeak_config.ini'))
@@ -47,7 +48,7 @@ class mt8057(threading.Thread):
         self._dev = usb.core.find(idVendor=self.VID, idProduct=self.PID)
 
         if self._dev is None:
-            raise ValueError("Device not found")
+            raise ValueError("Device wasn't found.")
 
         if self._dev.is_kernel_driver_active(0):
             self._dev.detach_kernel_driver(0)
@@ -151,7 +152,64 @@ class mt8057(threading.Thread):
         if self._had_driver:
             self._dev.attach_kernel_driver(0)
 
-def sendData(co2, temp):
+class HumiditySensor(threading.Thread):
+    """
+    Class for Humidity sensor control
+    """
+    def __init__(self):
+        """
+        Class initialization
+        """
+        sensors = {
+            0: None,
+            11: Adafruit_DHT.DHT11,
+            22: Adafruit_DHT.DHT22,
+            2302: Adafruit_DHT.AM2302
+        }
+
+        self._sensor = sensors[int(thingspeak_config.get('sensor', 0))] # Type of Humidity sensor
+        self._gpio = int(thingspeak_config.get('gpio', 17))     # GPIO for Humidity sensor
+        
+        if self._sensor == None:
+            raise ValueError("Device wasn't found.")
+
+        threading.Thread.__init__(self, name="dht")
+        self._event_stop = threading.Event()
+        self._lock = threading.Lock()
+        self._humidity = None
+        self._temperature = None
+
+    def stop(self):
+        """
+        Stop data reading
+        """
+        self._event_stop.set()
+
+    def run(self):
+        """
+        Loop data reading
+        """
+        while not self._event_stop.is_set():
+            try:
+                humidity, temperature = Adafruit_DHT.read_retry(self._sensor, self._gpio)
+                if humidity is not None and temperature is not None:
+                    self._humidity = humidity
+                    self._temperature = temperature
+            except BaseException as e:
+                print('{} Humidity reading error: {}'.format(str(datetime.datetime.now()), str(e)))
+            except:
+                print('{} Humidity reading error.'.format(str(datetime.datetime.now())))
+
+    def get_data(self):
+        """
+        Return last read data
+        """
+        self._lock.acquire()
+        value = (self._humidity, self._temperature)
+        self._lock.release()
+        return value
+
+def sendData(co2, temp, humidity, temp2):
     """
     Send data to Cloud
     """
@@ -159,7 +217,7 @@ def sendData(co2, temp):
     THINGSPEAKKEY = thingspeak_config.get('key', '')
     THINGSPEAKURL = thingspeak_config.get('url', '')
 
-    values = {'api_key' : THINGSPEAKKEY, 'field1' : co2, 'field2' : temp}
+    values = {'api_key' : THINGSPEAKKEY, 'field1' : co2, 'field2' : temp, 'field3' : humidity, 'field4' : temp2}
 
     postdata = urllib.urlencode(values)
     req = urllib2.Request(THINGSPEAKURL, postdata)
@@ -168,6 +226,8 @@ def sendData(co2, temp):
         log = time.strftime("%d-%m-%Y,%H:%M:%S") + ","
         log = log + "{:.1f}ppm".format(co2) + ","
         log = log + "{:.2f}C".format(temp) + ","
+        log = log + "{:.1f}%".format(humidity) + ","
+        log = log + "{:.2f}C".format(temp2) + ","
     else:
         log = ''
 
@@ -210,6 +270,11 @@ if __name__ == "__main__":
         t_mt8057.start()
 
         print('{} MT8057 was initialized.'.format(str(datetime.datetime.now())))
+    
+        t_dht = HumiditySensor()
+        t_dht.start()
+
+        print('{} Humidity Sensor was initialized.'.format(str(datetime.datetime.now())))
 
         while True: # Infinite loop for data sending
             try:
@@ -217,14 +282,15 @@ if __name__ == "__main__":
 
                 current_time = str(datetime.datetime.now());
 
-                (valueCO2, valueTemp) = t_mt8057.get_data() # Data reading
+                (valueCO2, valueTemp) = t_mt8057.get_data()    # Data reading
+                (valueHumidity, valueTemp2) = t_dht.get_data() # Data reading
                 if debug:
-                    print(current_time, valueCO2, valueTemp)
+                    print(current_time, valueCO2, valueTemp, valueHumidity, valueTemp2)
 
-                sendData(valueCO2, valueTemp) # Send data to Cloud
+                sendData(valueCO2, valueTemp, valueHumidity, valueTemp2) # Send data to Cloud
 
                 flog = open(LOGFILE,'a',0)
-                flog.write('{},{},{}\n'.format(current_time, valueCO2, valueTemp))
+                flog.write('{},{},{},{},{}\n'.format(current_time, valueCO2, valueTemp, valueHumidity, valueTemp2))
                 flog.close()
             except SystemExit: # System Exit, leave loop
                 break
@@ -239,6 +305,9 @@ if __name__ == "__main__":
 
         t_mt8057.stop()
         t_mt8057.join()
+
+        t_dht.stop()
+        t_dht.join()
     except BaseException as e:
         print('{} Unknown error: {}'.format(str(datetime.datetime.now()), str(e)))
     except:

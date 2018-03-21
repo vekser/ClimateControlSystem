@@ -1,5 +1,5 @@
 # ClimateControlSystem
-Climate control system is base on CO2 and temperature sensors ( MT8057S ). Thinkspeak cloud is been using for analyzing. 
+Climate control system is base on CO2/temperature sensors (MT8057S) and humidity/temperature sensors (DHT11/DHT22/AM2302 https://github.com/adafruit/Adafruit_Python_DHT). Thinkspeak cloud is been using for analyzing. 
 
 ## Using Python script
 

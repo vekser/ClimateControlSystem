@@ -192,7 +192,7 @@ class HumiditySensor(threading.Thread):
         while not self._event_stop.is_set():
             try:
                 humidity, temperature = Adafruit_DHT.read_retry(self._sensor, self._gpio)
-                if humidity is not None and temperature is not None:
+                if humidity is not None and temperature is not None and humidity <= 100:
                     self._humidity = humidity
                     self._temperature = temperature
             except BaseException as e:

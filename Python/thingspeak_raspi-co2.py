@@ -82,8 +82,10 @@ class mt8057(threading.Thread):
                 # time.sleep(0.1)
             except BaseException as e:
                 print('{} USB reading error: {}'.format(str(datetime.datetime.now()), str(e)))
+                raise SystemExit
             except:
                 print('{} USB reading error.'.format(str(datetime.datetime.now())))
+                raise SystemExit
         self._release()
 
     def get_data(self):
@@ -197,8 +199,10 @@ class HumiditySensor(threading.Thread):
                     self._temperature = temperature
             except BaseException as e:
                 print('{} Humidity reading error: {}'.format(str(datetime.datetime.now()), str(e)))
+                raise SystemExit
             except:
                 print('{} Humidity reading error.'.format(str(datetime.datetime.now())))
+                raise SystemExit
 
     def get_data(self):
         """
@@ -308,6 +312,8 @@ if __name__ == "__main__":
 
         t_dht.stop()
         t_dht.join()
+    except SystemExit: # System Exit
+        pass
     except BaseException as e:
         print('{} Unknown error: {}'.format(str(datetime.datetime.now()), str(e)))
     except:
@@ -315,4 +321,3 @@ if __name__ == "__main__":
 
     print('{} CO2 daemon stopped.'.format(str(datetime.datetime.now())))
 
-    sys.exit(0)

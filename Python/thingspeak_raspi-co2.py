@@ -251,7 +251,8 @@ def sendData(co2, temp, humidity, temp2):
     except BaseException as e:
         log = log + 'Unknown error: {}'.format(str(e))
 
-    print(log)
+    if log:
+        print(log)
 
 if __name__ == "__main__":
     """

@@ -20,5 +20,5 @@ sudo python thingspeak_raspi-co2.py
 1. Append following line (with correct paths) to file '/etc/rc.local' and reboot system.
 
 ```
-sudo python /home/pi/ClimateControlSystem/thingspeak_raspi-co2.py  >> /home/pi/ClimateControlSystem/daemon.log 2>&1
+sudo python /home/pi/ClimateControlSystem/Python/thingspeak_raspi-co2.py  >> /home/pi/ClimateControlSystem/daemon.log 2>&1
 ```

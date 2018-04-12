@@ -55,7 +55,6 @@ class mt8057(threading.Thread):
             self._had_driver = True
 
         self._dev.set_configuration()
-        # print(self._dev)
         self._ep = self._dev[0][(0, 0)][0]
 
     def stop(self):
@@ -265,7 +264,7 @@ if __name__ == "__main__":
 
     print('{} CO2 daemon started.'.format(str(datetime.datetime.now())))
 
-    LOGFILE = thingspeak_config.get('log', 'logCO2_ts.txt')
+    LOGFILE = thingspeak_config.get('log', '')
 
     try:
         signal.signal(signal.SIGTERM, signal_handler)
@@ -293,9 +292,10 @@ if __name__ == "__main__":
 
                 sendData(valueCO2, valueTemp, valueHumidity, valueTemp2) # Send data to Cloud
 
-                flog = open(LOGFILE,'a',0)
-                flog.write('{},{},{},{},{}\n'.format(current_time, valueCO2, valueTemp, valueHumidity, valueTemp2))
-                flog.close()
+                if LOGFILE:
+                    flog = open(LOGFILE,'a',0)
+                    flog.write('{},{},{},{},{}\n'.format(current_time, valueCO2, valueTemp, valueHumidity, valueTemp2))
+                    flog.close()
             except SystemExit: # System Exit, leave loop
                 break
             except KeyboardInterrupt:

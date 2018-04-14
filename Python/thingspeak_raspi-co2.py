@@ -9,6 +9,7 @@ import urllib            # URL functions
 import urllib2           # URL functions
 import configparser
 import os
+import json
 import Adafruit_DHT
 
 config = configparser.ConfigParser()
@@ -17,6 +18,8 @@ thingspeak_config = config['thingspeak.com']
 
 debug = thingspeak_config.getboolean('debug', False) # Loging data sending to console
 pause = int(thingspeak_config.get('pause', 30))      # Pause between data sending (seconds)
+
+cache_data = []
 
 class mt8057(threading.Thread):
     """
@@ -212,18 +215,42 @@ class HumiditySensor(threading.Thread):
         self._lock.release()
         return value
 
-def sendData(co2, temp, humidity, temp2):
+def sendData(current_time, co2, temp, humidity, temp2):
     """
     Send data to Cloud
     """
 
     THINGSPEAKKEY = thingspeak_config.get('key', '')
     THINGSPEAKURL = thingspeak_config.get('url', '')
+    THINGSPEAKBULKURL = thingspeak_config.get('bulk_url', '')
 
-    values = {'api_key' : THINGSPEAKKEY, 'field1' : co2, 'field2' : temp, 'field3' : humidity, 'field4' : temp2}
+    if not THINGSPEAKKEY:
+        print('{} Key for thingspeak.com not found.'.format(str(datetime.datetime.now())))
+        sys.exit(0)
 
-    postdata = urllib.urlencode(values)
-    req = urllib2.Request(THINGSPEAKURL, postdata)
+    req = None
+    if THINGSPEAKBULKURL:
+        req = urllib2.Request(THINGSPEAKBULKURL)
+        req.add_header('Content-Type', 'application/json')
+
+        data = {"created_at" : current_time, 'created_at' : current_time, 'field1' : co2, 'field2' : temp, 'field3' : humidity, 'field4' : temp2}
+
+        THINGSPEAKBULKMAX = thingspeak_config.get('max_bulk_size', 1000)
+        if len(cache_data) >= THINGSPEAKBULKMAX:
+            del cache_data[0]
+        cache_data.append(data)
+
+        values = {"write_api_key" : THINGSPEAKKEY, "updates" : cache_data}
+        postdata = json.dumps(values)
+
+    elif THINGSPEAKURL:
+        values = {'api_key' : THINGSPEAKKEY, 'created_at' : current_time, 'field1' : co2, 'field2' : temp, 'field3' : humidity, 'field4' : temp2}
+        postdata = urllib.urlencode(values)
+
+        req = urllib2.Request(THINGSPEAKURL)
+    else:
+        print('{} Correct url for thingspeak.com not found.'.format(str(datetime.datetime.now())))
+        sys.exit(0)
 
     if debug:
         log = time.strftime("%d-%m-%Y,%H:%M:%S") + ","
@@ -236,11 +263,12 @@ def sendData(co2, temp, humidity, temp2):
 
     try:
         # Send data to Thingspeak
-        response = urllib2.urlopen(req, None, 5)
+        response = urllib2.urlopen(req, postdata, 5)
         html_string = response.read()
         response.close()
         if debug:
             log = log + 'Update {}'.format(html_string)
+        del cache_data[:]
 
     except (SystemExit, KeyboardInterrupt):
         raise # System Exit or Keyboard Interrupt
@@ -252,7 +280,7 @@ def sendData(co2, temp, humidity, temp2):
         log = log + 'Unknown error: {}'.format(str(e))
 
     if log:
-        print(log)
+        print('{} {}'.format(str(datetime.datetime.now()), log))
 
 if __name__ == "__main__":
     """
@@ -291,7 +319,7 @@ if __name__ == "__main__":
                 if debug:
                     print(current_time, valueCO2, valueTemp, valueHumidity, valueTemp2)
 
-                sendData(valueCO2, valueTemp, valueHumidity, valueTemp2) # Send data to Cloud
+                sendData(current_time, valueCO2, valueTemp, valueHumidity, valueTemp2) # Send data to Cloud
 
                 if LOGFILE:
                     flog = open(LOGFILE,'a',0)

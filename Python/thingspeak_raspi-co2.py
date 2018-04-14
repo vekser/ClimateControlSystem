@@ -315,7 +315,7 @@ if __name__ == "__main__":
         while True: # Infinite loop for data sending
             start_loop = time.time()
             try:
-                current_time = str(datetime.datetime.now());
+                current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime());
 
                 (valueCO2, valueTemp) = t_mt8057.get_data()    # Data reading
                 (valueHumidity, valueTemp2) = t_dht.get_data() # Data reading
@@ -359,7 +359,5 @@ if __name__ == "__main__":
             print('{} Humidity Sensor is stopping...'.format(str(datetime.datetime.now())))
             t_dht.stop()
             t_dht.join()
-        
 
     print('{} CO2 daemon stopped.'.format(str(datetime.datetime.now())))
-

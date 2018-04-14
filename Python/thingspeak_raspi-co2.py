@@ -89,6 +89,7 @@ class mt8057(threading.Thread):
                 print('{} USB reading error.'.format(str(datetime.datetime.now())))
                 raise SystemExit
         self._release()
+        print('{} MT8057 was stopped.'.format(str(datetime.datetime.now())))
 
     def get_data(self):
         """
@@ -173,7 +174,7 @@ class HumiditySensor(threading.Thread):
 
         self._sensor = sensors[int(thingspeak_config.get('sensor', 0))] # Type of Humidity sensor
         self._gpio = int(thingspeak_config.get('gpio', 17))     # GPIO for Humidity sensor
-        
+
         if self._sensor == None:
             raise ValueError("Device wasn't found.")
 
@@ -205,6 +206,7 @@ class HumiditySensor(threading.Thread):
             except:
                 print('{} Humidity reading error.'.format(str(datetime.datetime.now())))
                 raise SystemExit
+        print('{} Humidity sensor was stopped.'.format(str(datetime.datetime.now())))
 
     def get_data(self):
         """
@@ -272,9 +274,9 @@ def sendData(current_time, co2, temp, humidity, temp2):
 
     except (SystemExit, KeyboardInterrupt):
         raise # System Exit or Keyboard Interrupt
-    except urllib2.HTTPError, e:
+    except urllib2.HTTPError as e:
         log = log + 'Server could not fulfill the request. Error code: {}'.format(str(e.code))
-    except urllib2.URLError, e:
+    except urllib2.URLError as e:
         log = log + 'Failed to reach server. Reason: {}'.format(str(e.reason))
     except BaseException as e:
         log = log + 'Unknown error: {}'.format(str(e))
@@ -295,6 +297,8 @@ if __name__ == "__main__":
 
     LOGFILE = thingspeak_config.get('log', '')
 
+    t_mt8057 = None
+    t_dht = None
     try:
         signal.signal(signal.SIGTERM, signal_handler)
 
@@ -302,16 +306,15 @@ if __name__ == "__main__":
         t_mt8057.start()
 
         print('{} MT8057 was initialized.'.format(str(datetime.datetime.now())))
-    
+
         t_dht = HumiditySensor()
         t_dht.start()
 
         print('{} Humidity Sensor was initialized.'.format(str(datetime.datetime.now())))
 
         while True: # Infinite loop for data sending
+            start_loop = time.time()
             try:
-                time.sleep(pause)
-
                 current_time = str(datetime.datetime.now());
 
                 (valueCO2, valueTemp) = t_mt8057.get_data()    # Data reading
@@ -335,18 +338,28 @@ if __name__ == "__main__":
                 print('I/O error: {}'.format(e.strerror))
             except:
                 print('{} Unknown error in loop.'.format(str(datetime.datetime.now()))) # Don't leave loop
+            end_loop = time.time()
+            time.sleep(pause - (end_loop - start_loop))
 
-        t_mt8057.stop()
-        t_mt8057.join()
-
-        t_dht.stop()
-        t_dht.join()
+    except KeyboardInterrupt:
+        print('{} KeyboardInterrupt was caught.'.format(str(datetime.datetime.now())))
     except SystemExit: # System Exit
         pass
     except BaseException as e:
         print('{} Unknown error: {}'.format(str(datetime.datetime.now()), str(e)))
     except:
         print('{} Unknown error.'.format(str(datetime.datetime.now())))
+    finally:
+        if t_mt8057:
+            print('{} MT8057 is stopping...'.format(str(datetime.datetime.now())))
+            t_mt8057.stop()
+            t_mt8057.join()
+
+        if t_dht:
+            print('{} Humidity Sensor is stopping...'.format(str(datetime.datetime.now())))
+            t_dht.stop()
+            t_dht.join()
+        
 
     print('{} CO2 daemon stopped.'.format(str(datetime.datetime.now())))
 

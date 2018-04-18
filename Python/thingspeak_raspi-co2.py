@@ -1,4 +1,4 @@
-import sys
+import sys, traceback
 import time
 import threading
 import usb.core
@@ -291,6 +291,7 @@ def sendData(current_time, co2, temp, humidity, temp2):
         print('{} Failed to reach server. Error: {}'.format(str(datetime.datetime.now()), str(e)))
     except BaseException as e:
         print('{} Unknown error: {}'.format(str(datetime.datetime.now()), str(e)))
+        traceback.print_exc()
 
 if __name__ == "__main__":
     """
@@ -346,6 +347,7 @@ if __name__ == "__main__":
                 print('{} I/O error: {}'.format(str(datetime.datetime.now()), str(e)))
             except:
                 print('{} Unknown error in loop.'.format(str(datetime.datetime.now()))) # Don't leave loop
+                traceback.print_exc()
             end_loop = time.time()
             loop_duration = end_loop - start_loop
             if loop_duration < pause:
@@ -357,8 +359,10 @@ if __name__ == "__main__":
         pass
     except BaseException as e:
         print('{} Unknown error: {}'.format(str(datetime.datetime.now()), str(e)))
+        traceback.print_exc()
     except:
         print('{} Unknown error.'.format(str(datetime.datetime.now())))
+        traceback.print_exc()
     finally:
         if t_mt8057:
             print('{} MT8057 is stopping...'.format(str(datetime.datetime.now())))

@@ -347,7 +347,9 @@ if __name__ == "__main__":
             except:
                 print('{} Unknown error in loop.'.format(str(datetime.datetime.now()))) # Don't leave loop
             end_loop = time.time()
-            time.sleep(pause - (end_loop - start_loop))
+            loop_duration = end_loop - start_loop
+            if loop_duration < pause:
+                time.sleep(pause - (end_loop - start_loop))
 
     except KeyboardInterrupt:
         print('{} KeyboardInterrupt was caught.'.format(str(datetime.datetime.now())))

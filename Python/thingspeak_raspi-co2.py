@@ -270,7 +270,8 @@ def sendData(current_time, co2, temp, humidity, temp2):
         response.close()
         if debug:
             log = log + 'Update {}'.format(html_string)
-        del cache_data[:]
+        if THINGSPEAKBULKURL and cache_data:
+            del cache_data[:]
 
     except (SystemExit, KeyboardInterrupt):
         raise # System Exit or Keyboard Interrupt

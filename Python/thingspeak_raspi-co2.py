@@ -251,12 +251,20 @@ def sendData(current_time, co2, temp, humidity, temp2):
         req = urllib2.Request(THINGSPEAKBULKURL)
         req.add_header('Content-Type', 'application/json')
 
-        data = {"created_at" : current_time, 'created_at' : current_time, 'field1' : co2, 'field2' : temp, 'field3' : humidity, 'field4' : temp2, 'status' : get_ip_address()}
+        data = {"created_at" : current_time, 'created_at' : current_time, 'field1' : co2, 'field2' : temp, 'field3' : humidity, 'field4' : temp2, 'status' : ''}
 
         THINGSPEAKBULKMAX = thingspeak_config.get('max_bulk_size', 1000)
         if len(cache_data) >= THINGSPEAKBULKMAX:
             del cache_data[0]
         cache_data.append(data)
+
+        ip = get_ip_address()
+        if not ip:
+            return
+        else:
+            for i, data in enumerate(cache_data):
+                data['status'] = ip
+                cache_data[i] = data
 
         values = {"write_api_key" : THINGSPEAKKEY, "updates" : cache_data}
         postdata = json.dumps(values)
@@ -291,7 +299,6 @@ def sendData(current_time, co2, temp, humidity, temp2):
         print('{} Failed to reach server. Error: {}'.format(str(datetime.datetime.now()), str(e)))
     except BaseException as e:
         print('{} Unknown error: {}'.format(str(datetime.datetime.now()), str(e)))
-        traceback.print_exc()
 
 if __name__ == "__main__":
     """

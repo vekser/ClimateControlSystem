@@ -10,6 +10,7 @@ import urllib2           # URL functions
 import configparser
 import os
 import json
+import socket
 import Adafruit_DHT
 
 config = configparser.ConfigParser()
@@ -20,6 +21,11 @@ debug = thingspeak_config.getboolean('debug', False) # Loging data sending to co
 pause = int(thingspeak_config.get('pause', 30))      # Pause between data sending (seconds)
 
 cache_data = []
+
+def get_ip_address():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    return s.getsockname()[0]
 
 class mt8057(threading.Thread):
     """
@@ -235,7 +241,7 @@ def sendData(current_time, co2, temp, humidity, temp2):
         req = urllib2.Request(THINGSPEAKBULKURL)
         req.add_header('Content-Type', 'application/json')
 
-        data = {"created_at" : current_time, 'created_at' : current_time, 'field1' : co2, 'field2' : temp, 'field3' : humidity, 'field4' : temp2}
+        data = {"created_at" : current_time, 'created_at' : current_time, 'field1' : co2, 'field2' : temp, 'field3' : humidity, 'field4' : temp2, 'status' : get_ip_address()}
 
         THINGSPEAKBULKMAX = thingspeak_config.get('max_bulk_size', 1000)
         if len(cache_data) >= THINGSPEAKBULKMAX:
@@ -246,7 +252,7 @@ def sendData(current_time, co2, temp, humidity, temp2):
         postdata = json.dumps(values)
 
     elif THINGSPEAKURL:
-        values = {'api_key' : THINGSPEAKKEY, 'created_at' : current_time, 'field1' : co2, 'field2' : temp, 'field3' : humidity, 'field4' : temp2}
+        values = {'api_key' : THINGSPEAKKEY, 'created_at' : current_time, 'field1' : co2, 'field2' : temp, 'field3' : humidity, 'field4' : temp2, 'status' : get_ip_address()}
         postdata = urllib.urlencode(values)
 
         req = urllib2.Request(THINGSPEAKURL)

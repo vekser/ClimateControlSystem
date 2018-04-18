@@ -23,9 +23,15 @@ pause = int(thingspeak_config.get('pause', 30))      # Pause between data sendin
 cache_data = []
 
 def get_ip_address():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.connect(("8.8.8.8", 80))
-    return s.getsockname()[0]
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        return s.getsockname()[0]
+    except (SystemExit, KeyboardInterrupt):
+        raise # System Exit or Keyboard Interrupt
+    except BaseException as e:
+        print('{} Error: {}'.format(str(datetime.datetime.now()), str(e)))
+        return ''
 
 class mt8057(threading.Thread):
     """
@@ -265,13 +271,7 @@ def sendData(current_time, co2, temp, humidity, temp2):
         sys.exit(0)
 
     if debug:
-        log = time.strftime("%d-%m-%Y,%H:%M:%S") + ","
-        log = log + "{:.1f}ppm".format(co2) + ","
-        log = log + "{:.2f}C".format(temp) + ","
-        log = log + "{:.1f}%".format(humidity) + ","
-        log = log + "{:.2f}C".format(temp2) + ","
-    else:
-        log = ''
+        print('{} {}'.format(str(datetime.datetime.now()), postdata))
 
     try:
         # Send data to Thingspeak
@@ -279,21 +279,18 @@ def sendData(current_time, co2, temp, humidity, temp2):
         html_string = response.read()
         response.close()
         if debug:
-            log = log + 'Update {}'.format(html_string)
+            print('{} Update: {}'.format(str(datetime.datetime.now()), html_string))
         if THINGSPEAKBULKURL and cache_data:
             del cache_data[:]
 
     except (SystemExit, KeyboardInterrupt):
         raise # System Exit or Keyboard Interrupt
     except urllib2.HTTPError as e:
-        log = log + 'Server could not fulfill the request. Error code: {}'.format(str(e.code))
+        print('{} Server could not fulfill the request. Error: {}'.format(str(datetime.datetime.now()), str(e)))
     except urllib2.URLError as e:
-        log = log + 'Failed to reach server. Reason: {}'.format(str(e.reason))
+        print('{} Failed to reach server. Error: {}'.format(str(datetime.datetime.now()), str(e)))
     except BaseException as e:
-        log = log + 'Unknown error: {}'.format(str(e))
-
-    if log:
-        print('{} {}'.format(str(datetime.datetime.now()), log))
+        print('{} Unknown error: {}'.format(str(datetime.datetime.now()), str(e)))
 
 if __name__ == "__main__":
     """
@@ -331,7 +328,7 @@ if __name__ == "__main__":
                 (valueCO2, valueTemp) = t_mt8057.get_data()    # Data reading
                 (valueHumidity, valueTemp2) = t_dht.get_data() # Data reading
                 if debug:
-                    print(current_time, valueCO2, valueTemp, valueHumidity, valueTemp2)
+                    print("{} sendData({},{},{},{},{})".format(str(datetime.datetime.now()), current_time, valueCO2, valueTemp, valueHumidity, valueTemp2))
 
                 sendData(current_time, valueCO2, valueTemp, valueHumidity, valueTemp2) # Send data to Cloud
 
@@ -346,7 +343,7 @@ if __name__ == "__main__":
                 print('{} KeyboardInterrupt was caught.'.format(str(datetime.datetime.now())))
                 break
             except IOError as e: # File error, don't leave loop
-                print('I/O error: {}'.format(e.strerror))
+                print('{} I/O error: {}'.format(str(datetime.datetime.now()), str(e)))
             except:
                 print('{} Unknown error in loop.'.format(str(datetime.datetime.now()))) # Don't leave loop
             end_loop = time.time()

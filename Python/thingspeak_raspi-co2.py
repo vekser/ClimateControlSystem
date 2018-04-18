@@ -236,6 +236,10 @@ def sendData(current_time, co2, temp, humidity, temp2):
         print('{} Key for thingspeak.com not found.'.format(str(datetime.datetime.now())))
         sys.exit(0)
 
+    if not co2 or not temp or not humidity or not temp2:
+        print('{} Found None value, don\'t send.'.format(str(datetime.datetime.now())))
+        return
+
     req = None
     if THINGSPEAKBULKURL:
         req = urllib2.Request(THINGSPEAKBULKURL)

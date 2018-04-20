@@ -9,18 +9,19 @@
 % TODO - Replace the [] with channel ID to read data from:
 readChannelID = [PUT HERE CHANNEL];
 
-% Channel Read API Key 
-% If your channel is private, then enter the read API
-% Key between the '' below: 
-readAPIKey = 'PUT HERE READ API KEY';
-
-
+writeChannelID = [PUT HERE CHANNEL];
 % TODO - Replace the [] with the Field ID to read data from:
 fieldID1 = [1];
 % TODO - Replace the [] with the Field ID to read data from:
 fieldID2 = [2];
 
-%%-----------------------------------------------------------
+fieldID3 = [3];
+
+% Channel Read API Key 
+% If your channel is private, then enter the read API
+% Key between the '' below: 
+readAPIKey = 'PUT HERE KEY';
+writeAPIKey = 'PUT HERE KEY';
 
 %% Read Data %%
 NumPoints = 600;
@@ -30,6 +31,9 @@ NumPoints = 600;
 
 % Read second data variable
 Temp = thingSpeakRead(readChannelID, 'Field', fieldID2, 'NumPoints', NumPoints, 'ReadKey', readAPIKey);
+
+% Read third data variable
+Humidity = thingSpeakRead(readChannelID, 'Field', fieldID3, 'NumPoints', NumPoints, 'ReadKey', readAPIKey);
 
 %% Processing
 %CO2
@@ -43,15 +47,22 @@ CQ_CO2 = exp(CQ_CO2*coef)/exp(coef);
 CQ_Temp=abs(Temp-23)/10;
 CQ_Temp(CQ_Temp>1)=1;
 
-
+%Humidity
+CQ_Hum=abs(Humidity-50)/10;
+CQ_Hum(CQ_Hum>1)=1;
 
 %% Visualize Data %%
 
 w1=1.0;
 w2=0.1;
+w3=0.125;
 
-CQ = 5*(1-(CQ_CO2 * w1 + CQ_Temp*w2)/(w1+w2));
+CQ = 5*(1-(CQ_CO2 * w1 + CQ_Temp*w2 + CQ_Hum * w3 )/(w1+w2+w3));
 CQ = round(CQ,3);
+CQ = floor(medfilt1(CQ,11)*20);
 
-thingSpeakPlot(time,CQ,'Grid','on','XLabel','Time','YLabel','Climate quality')
+%thingSpeakPlot(time,CQ,'Grid','on','XLabel','Time','YLabel','Climate quality, %');
+% Write CQ values to additional channel 
+disp(CQ(length(CQ)));
+thingSpeakWrite(writeChannelID,CQ(length(CQ)),'WriteKey',writeAPIKey);
 

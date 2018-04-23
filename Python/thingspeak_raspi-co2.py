@@ -251,9 +251,9 @@ def sendData(current_time, co2, temp, humidity, temp2):
         req = urllib2.Request(THINGSPEAKBULKURL)
         req.add_header('Content-Type', 'application/json')
 
-        data = {"created_at" : current_time, 'created_at' : current_time, 'field1' : co2, 'field2' : temp, 'field3' : humidity, 'field4' : temp2, 'status' : ''}
+        data = {"created_at" : current_time, 'field1' : co2, 'field2' : temp, 'field3' : humidity, 'field4' : temp2, 'status' : ''}
 
-        THINGSPEAKBULKMAX = thingspeak_config.get('max_bulk_size', 1000)
+        THINGSPEAKBULKMAX = thingspeak_config.get('max_bulk_size', 960)
         if len(cache_data) >= THINGSPEAKBULKMAX:
             del cache_data[0]
         cache_data.append(data)

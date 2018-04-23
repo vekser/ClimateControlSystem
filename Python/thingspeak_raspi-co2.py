@@ -12,6 +12,7 @@ import os
 import json
 import socket
 import Adafruit_DHT
+import sqlite3
 
 config = configparser.ConfigParser()
 config.read(os.path.join(os.path.dirname(__file__), 'thingspeak_config.ini'))
@@ -237,26 +238,85 @@ class Cache():
         """
         Class initialization
         """
+        self._db = None
+        self._cursor = None
         self._cache_data = []
+        self._sent_id = set()
         self._limit = int(thingspeak_config.get('max_bulk_size', 960))
         if not self._limit or self._limit <= 0:
             self._limit = 960
+        try:
+            self._db = sqlite3.connect(os.path.join(os.path.dirname(__file__), 'thingspeak_cache.sqlite')) # Sqlite DB initialization
+            if self._db:
+                self._cursor = self._db.cursor()
+                self._cursor.execute('''CREATE TABLE IF NOT EXISTS cache(
+                                    id INTEGER PRIMARY KEY NOT NULL,
+                                    timestamp DATE,
+                                    co2 REAL,
+                                    temp REAL,
+                                    humidity REAL,
+                                    temp2 REAL)
+                ''')
+                self._db.commit()
+                print('{} DB for cache was initialized.'.format(str(datetime.datetime.now())))
+        except BaseException as e:
+            print('{} DB error: {}'.format(str(datetime.datetime.now()), str(e)))
 
     def __del__(self):
-        pass
+        if self._db:
+            self._db.close()
 
     def append(self, current_time, co2, temp, humidity, temp2):
-        data = {"created_at" : current_time, 'field1' : co2, 'field2' : temp, 'field3' : humidity, 'field4' : temp2, 'status' : ''}
-        if len(self._cache_data) >= self._limit:
-            del self._cache_data[0]
-        self._cache_data.append(data)
+        if self._cursor:
+            try:
+                self._cursor.execute(
+                    '''INSERT OR REPLACE INTO cache(timestamp, co2, temp, humidity, temp2) 
+                       VALUES(:timestamp, :co2, :temp, :humidity, :temp2)''',
+                    {"timestamp": current_time, 'co2': co2, 'temp': temp, 'humidity': humidity, 'temp2': temp2}
+                )
+                self._db.commit()
+            except BaseException as e:
+                print('{} DB error: {}'.format(str(datetime.datetime.now()), str(e)))
+        else:
+            data = {"created_at" : current_time, 'field1' : co2, 'field2' : temp, 'field3' : humidity, 'field4' : temp2, 'status' : ''}
+            if len(self._cache_data) >= self._limit:
+                del self._cache_data[0]
+            self._cache_data.append(data)
 
     def get_cache(self):
+        if self._cursor:
+            self._cache_data = []
+            try:
+                self._cursor.execute('SELECT * FROM cache ORDER BY datetime(timestamp) DESC LIMIT :limit', {"limit": self._limit})
+                results = self._cursor.fetchall()
+                if results:
+                    for result in results:
+                        data = {
+                            "created_at": result[1],
+                            'field1': result[2],
+                            'field2': result[3],
+                            'field3': result[4],
+                            'field4' : result[5]
+                        }
+                        self._cache_data.append(data)
+                        self._sent_id.add(result[0])
+            except BaseException as e:
+                print('{} DB error: {}'.format(str(datetime.datetime.now()), str(e)))
         return self._cache_data
 
     def clear_cache(self):
         if self._cache_data:
-            del self._cache_data[:]
+            if self._cursor:
+                try:
+                    if self._sent_id:
+                        sql = 'DELETE FROM cache WHERE id IN ({})'.format(",".join(['?'] * len(self._sent_id)))
+                        self._cursor.execute(sql, list(self._sent_id))
+                        self._db.commit()
+                        self._sent_id = set()
+                except BaseException as e:
+                    print('{} DB error: {}'.format(str(datetime.datetime.now()), str(e)))
+            else:
+                del self._cache_data[:]
 
 def sendData(current_time, co2, temp, humidity, temp2):
     """
@@ -281,15 +341,18 @@ def sendData(current_time, co2, temp, humidity, temp2):
         req.add_header('Content-Type', 'application/json')
 
         cache.append(current_time, co2, temp, humidity, temp2)
-        cache_data = cache.get_cache()
+        cache_data = []
 
         ip = get_ip_address()
         if not ip:
             return
         else:
-            for i, data in enumerate(cache_data):
+            for data in cache.get_cache():
                 data['status'] = ip
-                cache_data[i] = data
+                cache_data.append(data)
+
+        if not cache_data:
+            return
 
         values = {"write_api_key" : THINGSPEAKKEY, "updates" : cache_data}
         postdata = json.dumps(values)

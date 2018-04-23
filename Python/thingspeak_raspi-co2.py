@@ -20,7 +20,7 @@ thingspeak_config = config['thingspeak.com']
 debug = thingspeak_config.getboolean('debug', False) # Loging data sending to console
 pause = int(thingspeak_config.get('pause', 30))      # Pause between data sending (seconds)
 
-cache_data = []
+cache = None
 
 def get_ip_address():
     try:
@@ -229,6 +229,35 @@ class HumiditySensor(threading.Thread):
         self._lock.release()
         return value
 
+class Cache():
+    """
+    Class for cache
+    """
+    def __init__(self):
+        """
+        Class initialization
+        """
+        self._cache_data = []
+        self._limit = int(thingspeak_config.get('max_bulk_size', 960))
+        if not self._limit or self._limit <= 0:
+            self._limit = 960
+
+    def __del__(self):
+        pass
+
+    def append(self, current_time, co2, temp, humidity, temp2):
+        data = {"created_at" : current_time, 'field1' : co2, 'field2' : temp, 'field3' : humidity, 'field4' : temp2, 'status' : ''}
+        if len(self._cache_data) >= self._limit:
+            del self._cache_data[0]
+        self._cache_data.append(data)
+
+    def get_cache(self):
+        return self._cache_data
+
+    def clear_cache(self):
+        if self._cache_data:
+            del self._cache_data[:]
+
 def sendData(current_time, co2, temp, humidity, temp2):
     """
     Send data to Cloud
@@ -247,16 +276,12 @@ def sendData(current_time, co2, temp, humidity, temp2):
         return
 
     req = None
-    if THINGSPEAKBULKURL:
+    if THINGSPEAKBULKURL and cache:
         req = urllib2.Request(THINGSPEAKBULKURL)
         req.add_header('Content-Type', 'application/json')
 
-        data = {"created_at" : current_time, 'field1' : co2, 'field2' : temp, 'field3' : humidity, 'field4' : temp2, 'status' : ''}
-
-        THINGSPEAKBULKMAX = thingspeak_config.get('max_bulk_size', 960)
-        if len(cache_data) >= THINGSPEAKBULKMAX:
-            del cache_data[0]
-        cache_data.append(data)
+        cache.append(current_time, co2, temp, humidity, temp2)
+        cache_data = cache.get_cache()
 
         ip = get_ip_address()
         if not ip:
@@ -288,8 +313,8 @@ def sendData(current_time, co2, temp, humidity, temp2):
         response.close()
         if debug:
             print('{} Update: {}'.format(str(datetime.datetime.now()), html_string))
-        if THINGSPEAKBULKURL and cache_data:
-            del cache_data[:]
+        if THINGSPEAKBULKURL and cache:
+            cache.clear_cache()
 
     except (SystemExit, KeyboardInterrupt):
         raise # System Exit or Keyboard Interrupt
@@ -327,6 +352,9 @@ if __name__ == "__main__":
         t_dht.start()
 
         print('{} Humidity Sensor was initialized.'.format(str(datetime.datetime.now())))
+
+        cache = Cache()
+        print('{} Cache was initialized.'.format(str(datetime.datetime.now())))
 
         while True: # Infinite loop for data sending
             start_loop = time.time()

@@ -322,6 +322,8 @@ def sendData(current_time, co2, temp, humidity, temp2):
     """
     Send data to Cloud
     """
+    if not hasattr(sendData, "_send_error_cnt"):
+        sendData._send_error_cnt = 0
 
     THINGSPEAKKEY = thingspeak_config.get('key', '')
     THINGSPEAKURL = thingspeak_config.get('url', '')
@@ -333,7 +335,7 @@ def sendData(current_time, co2, temp, humidity, temp2):
 
     if not co2 or not temp or not humidity or not temp2:
         print('{} Found None value, don\'t send.'.format(str(datetime.datetime.now())))
-        return
+        return sendData._send_error_cnt
 
     req = None
     if THINGSPEAKBULKURL and cache:
@@ -345,14 +347,15 @@ def sendData(current_time, co2, temp, humidity, temp2):
 
         ip = get_ip_address()
         if not ip:
-            return
+            sendData._send_error_cnt += 1
+            return sendData._send_error_cnt
         else:
             for data in cache.get_cache():
                 data['status'] = ip
                 cache_data.append(data)
 
         if not cache_data:
-            return
+            return sendData._send_error_cnt
 
         values = {"write_api_key" : THINGSPEAKKEY, "updates" : cache_data}
         postdata = json.dumps(values)
@@ -378,15 +381,19 @@ def sendData(current_time, co2, temp, humidity, temp2):
             print('{} Update: {}'.format(str(datetime.datetime.now()), html_string))
         if THINGSPEAKBULKURL and cache:
             cache.clear_cache()
-
+        sendData._send_error_cnt = 0
     except (SystemExit, KeyboardInterrupt):
         raise # System Exit or Keyboard Interrupt
     except urllib2.HTTPError as e:
+        sendData._send_error_cnt += 1
         print('{} Server could not fulfill the request. Error: {}'.format(str(datetime.datetime.now()), str(e)))
     except urllib2.URLError as e:
+        sendData._send_error_cnt += 1
         print('{} Failed to reach server. Error: {}'.format(str(datetime.datetime.now()), str(e)))
     except BaseException as e:
+        sendData._send_error_cnt += 1
         print('{} Unknown error: {}'.format(str(datetime.datetime.now()), str(e)))
+    return sendData._send_error_cnt
 
 if __name__ == "__main__":
     """
@@ -400,6 +407,9 @@ if __name__ == "__main__":
     print('{} CO2 daemon started.'.format(str(datetime.datetime.now())))
 
     LOGFILE = thingspeak_config.get('log', '')
+    ERROR_LIMIT = int(thingspeak_config.get('error_limit', 120)) # Limit of continuous data sending errors
+
+    send_error_cnt = 0
 
     t_mt8057 = None
     t_dht = None
@@ -429,12 +439,15 @@ if __name__ == "__main__":
                 if debug:
                     print("{} sendData({},{},{},{},{})".format(str(datetime.datetime.now()), current_time, valueCO2, valueTemp, valueHumidity, valueTemp2))
 
-                sendData(current_time, valueCO2, valueTemp, valueHumidity, valueTemp2) # Send data to Cloud
+                send_error_cnt = sendData(current_time, valueCO2, valueTemp, valueHumidity, valueTemp2) # Send data to Cloud
 
                 if LOGFILE:
                     flog = open(LOGFILE,'a',0)
                     flog.write('{},{},{},{},{}\n'.format(current_time, valueCO2, valueTemp, valueHumidity, valueTemp2))
                     flog.close()
+                    
+                if send_error_cnt >= ERROR_LIMIT:
+                    break
             except SystemExit: # System Exit, leave loop
                 break
             except KeyboardInterrupt:
@@ -473,3 +486,6 @@ if __name__ == "__main__":
             t_dht.join()
 
     print('{} CO2 daemon stopped.'.format(str(datetime.datetime.now())))
+    if send_error_cnt >= ERROR_LIMIT:
+        print('{} System reboot...'.format(str(datetime.datetime.now())))
+        os.system("sudo reboot")

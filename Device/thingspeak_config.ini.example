@@ -5,6 +5,8 @@ log = /home/pi/ClimateControlSystem/logCO2_ts.txt
 pause = 30
 # Loging data sending to console
 debug = False
+# Limit of continuous data sending errors
+error_limit = 120
 
 [thingspeak.com]
 # URL for update - https://www.mathworks.com/help/thingspeak/writedata.html

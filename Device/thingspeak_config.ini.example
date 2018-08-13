@@ -1,0 +1,24 @@
+[DEFAULT]
+# File for data storing
+log = /home/pi/ClimateControlSystem/logCO2_ts.txt
+# Pause between data sending (seconds)
+pause = 30
+# Loging data sending to console
+debug = False
+# Limit of continuous data sending errors
+error_limit = 120
+
+[thingspeak.com]
+# URL for update - https://www.mathworks.com/help/thingspeak/writedata.html
+url = https://api.thingspeak.com/update
+# URL for bulk-update - https://www.mathworks.com/help/thingspeak/bulkwritejsondata.html
+# Set correct channel number!
+bulk_url = https://api.thingspeak.com/channels/999990/bulk_update.json
+# Max bulk size (cache size)
+max_bulk_size = 960
+# Write API key for channel
+key = XXXXXXXXXXXXXXXX
+# Type of Humidity sensor (DHT11)
+sensor = 11
+# GPIO for Humidity sensor
+gpio = 17

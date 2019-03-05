@@ -360,9 +360,6 @@ if __name__ == "__main__":
 
         print('{} MT8057 was initialized.'.format(str(datetime.datetime.now())))
 
-
-        print('{} Humidity Sensor was initialized.'.format(str(datetime.datetime.now())))
-
         cache = Cache()
         print('{} Cache was initialized.'.format(str(datetime.datetime.now())))
 
